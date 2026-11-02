@@ -1,4 +1,4 @@
-# Forever Windows - 1.3.2
+# Forever Windows - 1.3.5
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 

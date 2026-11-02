@@ -43,8 +43,11 @@ local WHERE = {
 -- Blizzard's own button (a micro button, or the window's close button), the
 -- same delegation Gamepad Companion uses for Spells.
 local OPEN_BUTTONS = {
-    CharacterFrame = {"CharacterMicroButton"}, WorldMapFrame = {"MiniMapWorldMapButton"},
-    QuestLogFrame = {"QuestLogMicroButton"}, FriendsFrame = {"SocialsMicroButton", "FriendsMicroButton", "QuickJoinToastButton"},
+    CharacterFrame = {"CharacterMicroButton"},
+    -- Forever has no MiniMapWorldMapButton: the zone name above the minimap
+    -- is the button that toggles the world map (MinimapZoneTextButtonMixin).
+    WorldMapFrame = { function() return MinimapCluster and MinimapCluster.ZoneTextButton end },
+    QuestLogFrame = {"QuestLogMicroButton"}, FriendsFrame = {"QuickJoinToastButton"},
     GuildFrame = {"GuildMicroButton"}, CommunitiesFrame = {"GuildMicroButton"},
     SpellBookFrame = {"SpellbookMicroButton"}, PlayerSpellsFrame = {"PlayerSpellsMicroButton", "SpellbookMicroButton"},
     ProfessionsBookFrame = {"ProfessionMicroButton"}, CollectionsJournal = {"CollectionsMicroButton"},
@@ -105,8 +108,10 @@ local function Action(name)
     end
     if OPEN_MACROS[name] then return "macro", OPEN_MACROS[name] end
     local names = OPEN_BUTTONS[name] or (name:find("^ContainerFrame") and OPEN_BUTTONS.ContainerFrame1)
-    for _, global in ipairs(names or {}) do
-        local button = _G[global]
+    for _, entry in ipairs(names or {}) do
+        -- A global name, or a function for a button that only has a parentKey.
+        local button
+        if type(entry) == "function" then button = entry() else button = _G[entry] end
         if Delegable(button) then return "click", button end
     end
     if WHERE[name] then return nil, "Only the game opens this window, " .. WHERE[name] .. "." end

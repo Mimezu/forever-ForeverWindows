@@ -1,6 +1,6 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.3.4"
+local VERSION = "1.3.5"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0
@@ -32,11 +32,12 @@ local function Accessible(frame)
 end
 
 -- Edit Mode systems as a set, rebuilt only when the registered list changes.
+-- Blizzard fills registeredSystemFrames with table.insert, so its length is
+-- the count; this runs for every tracked window on every 10 Hz tick.
 local systemSet, systemSource, systemCount = {}, nil, -1
 local function EditModeSystems()
     local systems = EditModeManagerFrame and EditModeManagerFrame.registeredSystemFrames
-    local count = 0
-    if type(systems) == "table" then for _ in pairs(systems) do count = count + 1 end end
+    local count = type(systems) == "table" and #systems or 0
     if systems ~= systemSource or count ~= systemCount then
         systemSet, systemSource, systemCount = {}, systems, count
         if type(systems) == "table" then
@@ -208,9 +209,11 @@ local function Geometry(frame)
     return left * ratio, top * ratio, frame:GetWidth() * ratio, frame:GetHeight() * ratio
 end
 
+-- Hoisted: Valid runs for every open moved window on every frame (Reapply).
+local LAYOUT_KEYS = { "x", "y", "scale" }
 local function Valid(d)
     if type(d) ~= "table" then return end
-    for _, key in ipairs({ "x", "y", "scale" }) do
+    for _, key in ipairs(LAYOUT_KEYS) do
         local v = d[key]
         if type(v) ~= "number" or v ~= v or math.abs(v) > 10000 then return end
     end

@@ -102,9 +102,10 @@ function S.Frame(container, heading)
     heading:SetParent(titleArea)
     heading:ClearAllPoints(); heading:SetPoint("CENTER", titleArea, "CENTER", 0, 0)
     local close = CreateFrame("Button", nil, chrome, "UIPanelCloseButtonNoScripts")
-    close:SetSize(24, 24)
-    -- Forever's UIPanelCloseButtonDefaultAnchorsMixin uses (-2, 1).
-    close:SetPoint("TOPRIGHT", border, "TOPRIGHT", -2, 1)
+    -- Forever's UIPanelCloseButtonDefaultAnchorsMixin: 28 px at (0, 3) since
+    -- build 70532 (24 px at (-2, 1) on 70338).
+    close:SetSize(28, 28)
+    close:SetPoint("TOPRIGHT", border, "TOPRIGHT", 0, 3)
     close:SetScript("OnClick", function() container:Hide() end)
     container:SetMovable(true); container:SetClampedToScreen(true)
     local drag = CreateFrame("Frame", nil, chrome)
