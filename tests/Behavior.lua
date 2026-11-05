@@ -256,9 +256,9 @@ ForeverWindowsDB.windows.ContainerFrameCombinedBags={scale=1.1,x=.3,y=-.2}
 bags:Hide(); bags.left=0; bags.scale=1; bags:Show()
 near(bags.scale,1.1); near(bags.left*bags.scale,.3*UIParent.width)
 -- Load-on-demand windows are discovered before their first Show.
-local guild=window('GuildFrame'); guild:Hide()
-ForeverWindowsDB.windows.GuildFrame={scale=.9,x=.25,y=-.1}
-events:Fire('OnEvent','ADDON_LOADED','Blizzard_GuildUI')
+local guild=window('CommunitiesFrame'); guild:Hide()
+ForeverWindowsDB.windows.CommunitiesFrame={scale=.9,x=.25,y=-.1}
+events:Fire('OnEvent','ADDON_LOADED','Blizzard_Communities')
 guild:Show(); near(guild.scale,.9); near(guild.left*guild.scale,.25*UIParent.width)
 guild:Hide(); tick(2)
 map.maximized=true; tick(2); assert(#overlays()==2)

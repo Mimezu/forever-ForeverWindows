@@ -9,32 +9,32 @@ local GOLD, NOTE, DIM, GREEN = {1, 0.82, 0}, {0.80, 0.77, 0.70}, {0.5, 0.5, 0.5}
 
 local LABELS = {
     CharacterFrame = "Character", WorldMapFrame = "World map", FriendsFrame = "Social",
-    SocialUIFrame = "Social", GuildFrame = "Guild", CommunitiesFrame = "Guild & Communities",
+    SocialUIFrame = "Social", CommunitiesFrame = "Guild & Communities",
     GuildControlUI = "Guild control", GuildRegistrarFrame = "Guild registrar", GuildBankFrame = "Guild bank",
     BankFrame = "Bank", MerchantFrame = "Vendor", TradeFrame = "Trade", LootFrame = "Loot",
-    MailFrame = "Mailbox", OpenMailFrame = "Letter", AuctionFrame = "Auction house",
-    AuctionHouseFrame = "Auction house", ClassTrainerFrame = "Trainer", CraftFrame = "Crafting",
-    TradeSkillFrame = "Profession", ProfessionsFrame = "Professions", ProfessionsBookFrame = "Professions book",
-    SpellBookFrame = "Spellbook", PlayerSpellsFrame = "Spells & talents", QuestLogFrame = "Quest log",
+    MailFrame = "Mailbox", OpenMailFrame = "Letter",
+    AuctionHouseFrame = "Auction house", ClassTrainerFrame = "Trainer",
+    ProfessionsFrame = "Professions", ProfessionsBookFrame = "Professions book",
+    PlayerSpellsFrame = "Spells & talents",
     QuestFrame = "Quest", GossipFrame = "NPC dialog", QuestLogPopupDetailFrame = "Quest details",
-    InspectFrame = "Inspect", LFGParentFrame = "Group finder", DressUpFrame = "Dressing room", PetStableFrame = "Stable", StableFrame = "Stable",
-    CollectionsJournal = "Collections", AchievementFrame = "Achievements", TalentFrame = "Talents",
-    PlayerTalentFrame = "Talents", MacroFrame = "Macros", ItemTextFrame = "Book", PetitionFrame = "Petition",
+    InspectFrame = "Inspect", LFGParentFrame = "Group finder", DressUpFrame = "Dressing room", PetStableFrame = "Stable",
+    CollectionsJournal = "Collections", AchievementFrame = "Achievements",
+    MacroFrame = "Macros", ItemTextFrame = "Book", PetitionFrame = "Petition",
     TabardFrame = "Tabard", TaxiFrame = "Flight map", FlightMapFrame = "Flight map", HelpFrame = "Help",
-    SettingsPanel = "Options", InterfaceOptionsFrame = "Interface options", ChatConfigFrame = "Chat settings",
-    CalendarFrame = "Calendar", PVEFrame = "Group finder", PVPUIFrame = "PvP", PVPFrame = "PvP",
-    EncounterJournal = "Adventure guide", ContainerFrameCombinedBags = "Bags",
+    SettingsPanel = "Options", ChatConfigFrame = "Chat settings",
+    CalendarFrame = "Calendar", PVEFrame = "Group finder", PVPUIFrame = "PvP",
+    ContainerFrameCombinedBags = "Bags",
 }
 -- Windows only the game can open, and where.
 local WHERE = {
     MerchantFrame = "at a vendor", MailFrame = "at a mailbox", OpenMailFrame = "at a mailbox",
-    BankFrame = "at a banker", GuildBankFrame = "at a guild vault", AuctionFrame = "at an auctioneer",
+    BankFrame = "at a banker", GuildBankFrame = "at a guild vault",
     AuctionHouseFrame = "at an auctioneer", ClassTrainerFrame = "at a trainer", TaxiFrame = "at a flight master",
     FlightMapFrame = "at a flight master", TradeFrame = "when trading", LootFrame = "when looting",
     GossipFrame = "when talking to NPCs", QuestFrame = "when talking to NPCs", InspectFrame = "when inspecting",
-    PetStableFrame = "at a stable master", StableFrame = "at a stable master", TabardFrame = "at a tabard vendor",
+    PetStableFrame = "at a stable master", TabardFrame = "at a tabard vendor",
     GuildRegistrarFrame = "at a guild master", PetitionFrame = "with a charter", ItemTextFrame = "when reading",
-    CraftFrame = "from your spellbook", TradeSkillFrame = "from your spellbook", ProfessionsFrame = "from your spellbook",
+    ProfessionsFrame = "from your spellbook",
 }
 -- Open and Close never call Blizzard's panel code from addon code: its gamepad
 -- focus manager listens to panel broadcasts, and an addon-made call leaves its
@@ -47,16 +47,14 @@ local OPEN_BUTTONS = {
     -- Forever has no MiniMapWorldMapButton: the zone name above the minimap
     -- is the button that toggles the world map (MinimapZoneTextButtonMixin).
     WorldMapFrame = { function() return MinimapCluster and MinimapCluster.ZoneTextButton end },
-    QuestLogFrame = {"QuestLogMicroButton"}, FriendsFrame = {"QuickJoinToastButton"},
-    GuildFrame = {"GuildMicroButton"}, CommunitiesFrame = {"GuildMicroButton"},
-    SpellBookFrame = {"SpellbookMicroButton"}, PlayerSpellsFrame = {"PlayerSpellsMicroButton", "SpellbookMicroButton"},
+    FriendsFrame = {"QuickJoinToastButton"}, CommunitiesFrame = {"GuildMicroButton"},
+    PlayerSpellsFrame = {"PlayerSpellsMicroButton", "SpellbookMicroButton"},
     ProfessionsBookFrame = {"ProfessionMicroButton"}, CollectionsJournal = {"CollectionsMicroButton"},
     -- Build 70338: on Forever these micro buttons open ProfessionsFrame and the
     -- vanilla-style group finder (LFGParentFrame).
     ProfessionsFrame = {"ProfessionMicroButton"}, LFGParentFrame = {"LFDMicroButton"},
-    AchievementFrame = {"AchievementMicroButton"}, TalentFrame = {"TalentMicroButton"},
-    PlayerTalentFrame = {"TalentMicroButton"}, CalendarFrame = {"GameTimeFrame"},
-    PVEFrame = {"LFDMicroButton"}, EncounterJournal = {"EJMicroButton"}, HelpFrame = {"HelpMicroButton"},
+    AchievementFrame = {"AchievementMicroButton"}, CalendarFrame = {"GameTimeFrame"},
+    PVEFrame = {"LFDMicroButton"}, HelpFrame = {"HelpMicroButton"},
     ContainerFrameCombinedBags = {"MainMenuBarBackpackButton"}, ContainerFrame1 = {"MainMenuBarBackpackButton"},
 }
 -- Blizzard slash commands, run by the engine's macro action.

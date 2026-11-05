@@ -1,6 +1,6 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.3.5"
+local VERSION = "1.3.6"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0
@@ -9,16 +9,17 @@ local input = { presses = 0, drags = 0, moves = 0 }
 local events, OnUpdate, Opened, UpdateDriver
 local cachedStates = {}
 local known = {}
+-- Windows that exist on Forever (checked against the 70532 Blizzard UI source).
 for name in string.gmatch([[
-CharacterFrame WorldMapFrame FriendsFrame SocialUIFrame GuildFrame CommunitiesFrame
+CharacterFrame WorldMapFrame FriendsFrame SocialUIFrame CommunitiesFrame
 GuildControlUI GuildRegistrarFrame GuildBankFrame BankFrame MerchantFrame TradeFrame
-LootFrame MailFrame OpenMailFrame AuctionFrame AuctionHouseFrame ClassTrainerFrame
-CraftFrame TradeSkillFrame ProfessionsFrame ProfessionsBookFrame SpellBookFrame
-PlayerSpellsFrame QuestLogFrame QuestFrame GossipFrame QuestLogPopupDetailFrame
-InspectFrame DressUpFrame PetStableFrame StableFrame CollectionsJournal AchievementFrame
-TalentFrame PlayerTalentFrame MacroFrame ItemTextFrame PetitionFrame TabardFrame
-TaxiFrame FlightMapFrame HelpFrame SettingsPanel InterfaceOptionsFrame ChatConfigFrame
-CalendarFrame PVEFrame PVPUIFrame PVPFrame EncounterJournal ContainerFrameCombinedBags
+LootFrame MailFrame OpenMailFrame AuctionHouseFrame ClassTrainerFrame
+ProfessionsFrame ProfessionsBookFrame
+PlayerSpellsFrame QuestFrame GossipFrame QuestLogPopupDetailFrame
+InspectFrame DressUpFrame PetStableFrame CollectionsJournal AchievementFrame
+MacroFrame ItemTextFrame PetitionFrame TabardFrame
+TaxiFrame FlightMapFrame HelpFrame SettingsPanel ChatConfigFrame
+CalendarFrame PVEFrame PVPUIFrame ContainerFrameCombinedBags
 ]], "%S+") do known[name] = true end
 for i = 1, 13 do known["ContainerFrame" .. i] = true end
 local excluded = { EditModeManagerFrame = true, GameMenuFrame = true,
