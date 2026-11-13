@@ -2,7 +2,7 @@
 ## Title: Forever Windows
 ## Notes: Drag Blizzard window title bars; Ctrl + mouse wheel to scale. Remembers layouts. /fwm for options.
 ## Author: Mimezu
-## Version: 1.3.6
+## Version: 1.4.0
 ## SavedVariables: ForeverWindowsDB
 ## LoadSavedVariablesFirst: 1
 ## Category: Mimezu's Suite

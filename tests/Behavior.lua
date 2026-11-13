@@ -370,8 +370,35 @@ gamepadUI=false; events:Fire('OnEvent','INPUT_DEVICE_INTERFACE_TRANSITION',0,1);
 assert(#overlays()==1,'keyboard UI unaffected by the session pause')
 gamepadUI=false; InputUtil=nil; issecurevariable=globalSecure; GamepadMode=nil
 SlashCmdList.FOREVERWINDOWS('enable')
+-- 1.4.0: the dressing room opens beside the auction house instead of closing it.
+function F:GetAttribute(k) return self.attrs and self.attrs[k] end
+function UIParent:GetRight() return self.width end
+UIPanelLayoutFrame=CreateFrame('Frame','UIPanelLayoutFrame',UIParent)
+UIPanelLayoutFrame.attrs={LEFT_OFFSET=16,RIGHT_OFFSET=836,RIGHT_OFFSET_BUFFER=80}
+local ah=window('AuctionHouseFrame'); ah:Hide(); ah.width=800
+UIPanelWindows.AuctionHouseFrame={area='doublewide',xoffset=20}
+local dress=window('DressUpFrame'); dress:Hide(); dress.attrs={['UIPanelLayout-width']=1000}
+local doublewide
+function GetUIPanel(key) return key=='doublewide' and doublewide or nil end
+ForeverWindowsDB.windows.AuctionHouseFrame={scale=1.2,x=.01,y=-.1}
+doublewide=ah; openPanel(ah)
+near(ah.scale,1.2)
+-- Room right of the scaled auction house: 1920-80-(16+800*1.2+20) = 844 for 1000.
+near(dress.scale,0.84)
+dress:Show(); near(dress.scale,0.84)
+dress:Hide()
+ForeverWindowsDB.windows.DressUpFrame={scale=1.5,x=.5,y=-.1}
+dress:Show(); near(dress.scale,0.84)
+stable=dress.writes; for i=1,10 do events:Fire('OnUpdate',0.001) end
+assert(dress.writes==stable,'docked dressing room is not fought over')
+dress:Hide(); doublewide=nil; ah:Hide()
+near(dress.scale,1)
+assert(ForeverWindowsDB.windows.DressUpFrame.scale==1.5,'saved scale kept for opening alone')
+dress:Show(); near(dress.scale,1.5); dress:Hide()
+GetUIPanel=nil; UIPanelLayoutFrame=nil; F.GetAttribute=nil; UIParent.GetRight=nil
+ForeverWindowsDB.windows.DressUpFrame=nil; ForeverWindowsDB.windows.AuctionHouseFrame=nil
 SlashCmdList.FOREVERWINDOWS('test')
 assert(ForeverWindowsDB.enabled==true,'session-only test mode must not disable future logins')
 SlashCmdList.FOREVERWINDOWS('off')
 assert(next(character.scripts)==nil and character.SetPoint==F.SetPoint,'native scripts and methods unchanged')
-print('PASS: panel-manager drift correction, unmoved windows untouched, reset/undo, automatic startup, direct-Show and lazy-window instant restore, persistent enable/off, inactive behavior, Character isolation, window-owned grips, drag/scale/persistence, no idle or close writes, combat, forbidden/EditMode/cycle exclusions, map mode, auto-suspension, gamepad UI default, pause/resume and session-only block pause')
+print('PASS: panel-manager drift correction, unmoved windows untouched, reset/undo, automatic startup, direct-Show and lazy-window instant restore, persistent enable/off, inactive behavior, Character isolation, window-owned grips, drag/scale/persistence, no idle or close writes, combat, forbidden/EditMode/cycle exclusions, map mode, auto-suspension, gamepad UI default, pause/resume and session-only block pause, dressing room beside the auction house')

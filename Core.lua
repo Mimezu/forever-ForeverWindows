@@ -1,12 +1,12 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.3.6"
+local VERSION = "1.4.0"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0
 local drag
 local input = { presses = 0, drags = 0, moves = 0 }
-local events, OnUpdate, Opened, UpdateDriver
+local events, OnUpdate, Opened, UpdateDriver, FitDressingRoom
 local cachedStates = {}
 local known = {}
 -- Windows that exist on Forever (checked against the 70532 Blizzard UI source).
@@ -222,13 +222,63 @@ local function Valid(d)
 end
 local function Saved(state) return Valid(ForeverWindowsDB.windows[state.name]) end
 
+-- Dressing room beside the auction house. Both are Blizzard panels: the
+-- auction house takes the doublewide slot, and the dressing room only goes
+-- to the right of it when Blizzard finds room for its scaled width there;
+-- otherwise it replaces the auction house, which closes it (and the bags
+-- with it). So while a doublewide panel is open the dressing room is kept
+-- small enough to fit. Only reads Blizzard's panel state, never writes it
+-- (GetUIPanelWidth would define the frame's panel attributes from here).
+local function PanelValue(frame, key)
+    local value = frame:GetAttribute("UIPanelLayout-" .. key)
+    if value == nil and not frame:GetAttribute("UIPanelLayout-defined") then
+        local info = type(UIPanelWindows) == "table" and UIPanelWindows[frame:GetName()]
+        value = type(info) == "table" and info[key] or nil
+    end
+    return tonumber(value)
+end
+local function PanelWidth(frame)
+    return (PanelValue(frame, "width") or frame:GetWidth()) + (PanelValue(frame, "extraWidth") or 0)
+end
+-- Largest dressing room scale that Blizzard places beside the open
+-- doublewide panel; nil when none is open or there is no room even at 0.5.
+local function DockLimit(frame)
+    if frame == nil or frame ~= _G.DressUpFrame or type(GetUIPanel) ~= "function" then return end
+    local layout = _G.UIPanelLayoutFrame
+    local ok, limit = pcall(function()
+        local wide = GetUIPanel("doublewide")
+        if not Accessible(wide) or not wide:IsShown() or not Accessible(layout) then return end
+        local function attr(name, default) return tonumber(layout:GetAttribute(name)) or default end
+        -- Blizzard checks against its stored offset first, then the one it
+        -- recomputes with the panel's current scale (this addon's layout).
+        local fresh = attr("LEFT_OFFSET", 16) + PanelWidth(wide) * wide:GetScale() + (PanelValue(wide, "xoffset") or 0)
+        local offset = math.max(attr("RIGHT_OFFSET", fresh), fresh)
+        local room = UIParent:GetRight() - attr("RIGHT_OFFSET_BUFFER", 80) - offset
+        local width = PanelWidth(frame)
+        if width <= 0 then return end
+        return math.floor(room / width * 100) / 100
+    end)
+    if not ok or type(limit) ~= "number" or limit ~= limit or limit < 0.5 then return end
+    return math.min(2, limit)
+end
+-- The scale a window is kept at: its saved one, made smaller when docked.
+local function TargetScale(state, d)
+    local scale = math.max(0.5, math.min(2, d.scale))
+    local limit = DockLimit(state.frame)
+    return limit and math.min(scale, limit) or scale
+end
+
 local function Save(state)
     local left, top, width, height = Geometry(state.frame)
     if not left then return end
     -- Updated in place: dragging saves on every cursor movement.
     local d = ForeverWindowsDB.windows[state.name]
     if type(d) ~= "table" then d = {}; ForeverWindowsDB.windows[state.name] = d end
-    d.scale, d.x, d.y = state.frame:GetScale(), left / UIParent:GetWidth(), top / UIParent:GetHeight() - 1
+    local scale = state.frame:GetScale()
+    -- A docked dressing room keeps its own scale for when it opens alone.
+    local limit = DockLimit(state.frame)
+    if not (limit and type(d.scale) == "number" and d.scale > limit and scale >= limit - 0.001) then d.scale = scale end
+    d.x, d.y = left / UIParent:GetWidth(), top / UIParent:GetHeight() - 1
     -- Size lets the options window preview a layout while the window is closed.
     d.w, d.h = width, height
     state.driftFails = nil
@@ -270,7 +320,7 @@ local function Capture(state, d)
     local scale = frame:GetScale()
     if not scale or scale <= 0 then return end
     -- A scale that is not the saved one was set by Blizzard (scale to fit).
-    local native = math.abs(scale - math.max(0.5, math.min(2, d.scale))) > 0.001 and scale or (state.nativeScale or 1)
+    local native = math.abs(scale - TargetScale(state, d)) > 0.001 and scale or (state.nativeScale or 1)
     local nativeWidth, nativeHeight = width / scale * native, height / scale * native
     local ok, point = pcall(frame.GetPoint, frame, 1)
     point = ok and type(point) == "string" and point or "TOPLEFT"
@@ -286,7 +336,7 @@ local function Restore(state)
     local d = Saved(state)
     if not d or not Available(state) then return end
     Capture(state, d)
-    local scale = math.max(0.5, math.min(2, d.scale))
+    local scale = TargetScale(state, d)
     if math.abs(state.frame:GetScale() - scale) > 0.001 then state.frame:SetScale(scale) end
     MoveTo(state, d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight())
 end
@@ -298,7 +348,7 @@ local function Drifted(state)
     local d = Saved(state)
     if not d then return false end
     local frame = state.frame
-    if math.abs(frame:GetScale() - math.max(0.5, math.min(2, d.scale))) > 0.001 then return true end
+    if math.abs(frame:GetScale() - TargetScale(state, d)) > 0.001 then return true end
     local left, top, width, height = Geometry(frame)
     if not left then return false end
     local wantLeft, wantTop = Clamp(d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight(), width, height)
@@ -318,6 +368,24 @@ local function Reapply(skip)
             else state.driftFails = nil end
             if state.grip then state.gripLeft = nil end
         end
+    end
+end
+
+-- Shrinks the closed dressing room while a doublewide panel is open, so a
+-- Ctrl-click opens it beside that panel; puts its scale back once closed.
+local heldScale
+FitDressingRoom = function()
+    local f = _G.DressUpFrame
+    if not ready or not mode or InCombatLockdown() or not Accessible(f) or not Editable(f) or f:IsShown() then return end
+    local limit = DockLimit(f)
+    if limit then
+        if f:GetScale() > limit + 0.001 then
+            heldScale = heldScale or f:GetScale()
+            f:SetScale(limit)
+        end
+    elseif heldScale then
+        if math.abs(f:GetScale() - heldScale) > 0.001 then f:SetScale(heldScale) end
+        heldScale = nil
     end
 end
 
@@ -387,7 +455,8 @@ local function MakeGrip(state)
         if not left then return end
         state.restoreAt = nil
         local old = state.frame:GetScale()
-        local scale = math.max(0.5, math.min(2, math.floor((old + (delta > 0 and 0.05 or -0.05)) * 100 + 0.5) / 100))
+        local scale = math.max(0.5, math.min(DockLimit(state.frame) or 2,
+            math.floor((old + (delta > 0 and 0.05 or -0.05)) * 100 + 0.5) / 100))
         if scale ~= old then state.frame:SetScale(scale) end
         MoveTo(state, left, top)
         Save(state)
@@ -433,6 +502,7 @@ local function Discover()
                         state.visible, state.restoreAt = false, nil
                         if state.grip then state.grip:Hide() end
                         if drag and drag.state == state then FinishDrag() end
+                        FitDressingRoom()
                         UpdateDriver()
                         Changed()
                     end)
@@ -586,11 +656,12 @@ if EventRegistry then
                 break
             end
         end
-        if mode then Reapply(opened) end
+        if mode then Reapply(opened); FitDressingRoom() end
     end, panelOwner)
     EventRegistry:RegisterCallback("UIParentPanelManager.HideUIPanel", function()
         if not ready or not mode or InCombatLockdown() then return end
         Reapply()
+        FitDressingRoom()
     end, panelOwner)
 end
 

@@ -1,4 +1,4 @@
-# Forever Windows - 1.3.6
+# Forever Windows - 1.4.0
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -7,6 +7,8 @@ Supported windows include Character, windowed Map, friends/guild, banks/bags, ve
 Saved layouts restore synchronously on opening. An OnShow post-hook handles direct openings; Blizzard's panel-open notification reapplies the layout after its panel manager finishes. No native method/script replacement, secure panel attribute changes, or close-time layout writes are used. Window-owned buttons handle title-bar input and share native focus/stacking. They ignore parent scale so their measured hit areas remain correct. Discovery runs on addon load, panel-open, bag, world and display events rather than a repeating scan.
 
 The update loop stops when all managed windows are closed, during combat, and when disabled. Visibility hooks and game events wake it. Visible windows use a 10 Hz grip audit to follow native tab/focus/geometry changes; dragging updates each frame. Unchanged grip anchors and sizes are not rewritten, and stationary drags do not repeatedly save coordinates.
+
+Dressing room (Ctrl-click) opens beside the auction house; it no longer closes it or the bags. While the auction house is open, the dressing room is shrunk to fit; its own scale returns when it opens alone.
 
 ## Commands
 
