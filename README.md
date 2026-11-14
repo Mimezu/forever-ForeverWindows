@@ -77,3 +77,12 @@ The addon also saves a snapshot on its own while the gamepad UI is on (`ForeverW
 Version 1.3.6 drops window names that do not exist on Forever (checked against the 70532 Blizzard UI source: GuildFrame, AuctionFrame, CraftFrame, TradeSkillFrame, SpellBookFrame, QuestLogFrame, StableFrame, TalentFrame, PlayerTalentFrame, InterfaceOptionsFrame, PVPFrame, EncounterJournal) from the discovery list and their label, location and Open-button rows. Windows that exist are unchanged.
 
 Version 1.5.0 keeps the reagent bag attached to the main bag (the combined bag, or the backpack). Blizzard hangs it beside that bag; a moved or scaled reagent bag now stays hung from it, at your offset and scale (`attachTo`, `dx`, `dy` in its layout), so it moves with the main bag. Opened alone, it uses its last screen position. It is never anchored to a bag that hangs from it (no circular anchor). Reset puts it back where Blizzard hangs it. Older reagent-bag layouts have no offset: the bag returns beside the main bag with its scale, and the next drag sets the offset.
+
+Version 1.5.1 is a review pass, aimed at windows (the vendor most of all) not always coming back where they were put.
+- A title click without movement no longer saves. It used to save the window's current spot, so a click or gamepad tap on a window Blizzard had pushed aside made that spot its layout.
+- Ctrl + mouse wheel scales a drifted window at its saved spot instead of saving the drifted one.
+- Drift repair counts a strike only when it really tried to move the window. A window that could not be moved for a moment (a maximized map, a hidden UI) used to collect three strikes and was then never repaired while it stayed open.
+- A window that will not stay put is left alone for 3 seconds, then repaired again. That happens after three repairs that do not hold, or more than 10 in a second. It used to be left alone until reopened. The per-frame guard never tripped before.
+- When UIParent is shown again (DialogueUI hides it during NPC talk), the update loop wakes at once.
+- Less per-frame work for bags.
+- Not changed: separate bag frames are handed out per opening, so with separate bags a "Bag 3" layout lands on whichever bag opens third. The combined bag, backpack and reagent bag are not affected.

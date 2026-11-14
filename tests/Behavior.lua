@@ -222,6 +222,20 @@ assert(character.writes-stable<=6,'drift correction must not fight forever')
 character.SetPoint=nil
 character:Hide(); openPanel(character)
 near(character.left,savedLeft)
+-- 1.5.1: a window that cannot be moved for a moment takes no strikes.
+local keepNative=ForeverWindowsDB.native.CharacterFrame
+character.forbidden=true; character.left=18
+for i=1,5 do events:Fire('OnUpdate',0.001) end
+character.forbidden=false; events:Fire('OnUpdate',0.001)
+near(character.left,savedLeft)
+-- 1.5.1: something re-anchoring it every frame: a few repairs, a pause, then again.
+stable=character.writes
+for i=1,30 do character.left=18; events:Fire('OnUpdate',0.001) end
+assert(character.writes-stable<=24,'a per-frame re-anchor is not fought every frame')
+near(character.left,18)
+events:Fire('OnUpdate',3.1)
+near(character.left,savedLeft)
+ForeverWindowsDB.native.CharacterFrame=keepNative
 combat=true; events:Fire('OnEvent','PLAYER_REGEN_DISABLED'); stable=character.writes; tick(10)
 assert(#overlays()==0 and character.writes==stable,'combat is read-only')
 assert(events.scripts.OnUpdate == nil, 'combat must detach polling')
@@ -242,6 +256,17 @@ assert(ForeverWindowsDB.enabled==true,'enable persists across reloads')
 -- Windows the user never moved keep following Blizzard.
 local mapWrites=map.writes; map.left=5; tick(3); events:Fire('OnUpdate',0.001)
 assert(map.writes==mapWrites and map.left==5,'unmoved windows are never re-anchored')
+-- 1.5.1: a title click without movement saves nothing.
+local mapGrip
+for _,g in ipairs(overlays()) do if g.parent==map then mapGrip=g end end
+mapGrip:Fire('OnMouseDown','LeftButton'); tick(); events:Fire('OnUpdate',0.001); mapGrip:Fire('OnMouseUp','LeftButton')
+assert(ForeverWindowsDB.windows.WorldMapFrame==nil and map.left==5,'a click is not a move')
+-- 1.5.1: Ctrl+wheel on a drifted window scales it at its saved spot.
+local bagSaved=ForeverWindowsDB.windows.ContainerFrameCombinedBags
+local bagX=bagSaved.x
+bags.left=bags.left+300
+control=true; bagGrip:Fire('OnMouseWheel',1); control=false
+near(ForeverWindowsDB.windows.ContainerFrameCombinedBags.x,bagX)
 -- Options window: preview, reset to Blizzard's place, undo.
 local layouts=ns.Layouts(); table.sort(layouts)
 assert(#layouts>=1 and layouts[1]=='CharacterFrame','options list moved windows')

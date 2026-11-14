@@ -294,28 +294,27 @@ end
 
 -- True when frame hangs, directly or through other frames, from target.
 -- Anchoring target back to it would be a circular anchor (an error).
-local function DependsOn(frame, target)
-    local seen = {}
-    local function walk(f, depth)
-        if depth > 8 or seen[f] then return false end
-        seen[f] = true
-        local okCount, count = pcall(f.GetNumPoints, f)
-        for i = 1, (okCount and type(count) == "number") and count or 0 do
-            local ok, _, relative = pcall(f.GetPoint, f, i)
-            if ok and relative then
-                if relative == target then return true end
-                if relative ~= UIParent and type(relative) == "table" and walk(relative, depth + 1) then return true end
-            end
+-- Anchor chains are short; the depth limit also stops a cycle.
+local function DependsOn(frame, target, depth)
+    depth = depth or 0
+    if depth > 8 then return false end
+    local okCount, count = pcall(frame.GetNumPoints, frame)
+    for i = 1, (okCount and type(count) == "number") and count or 0 do
+        local ok, _, relative = pcall(frame.GetPoint, frame, i)
+        if ok and relative then
+            if relative == target then return true end
+            if relative ~= UIParent and type(relative) == "table"
+                and DependsOn(relative, target, depth + 1) then return true end
         end
-        return false
     end
-    return walk(frame, 0)
+    return false
 end
 
 -- The open main bag a reagent bag hangs from, and its name. None when that
 -- bag is itself anchored to the reagent bag (Blizzard opened the reagent bag first).
 local function MainBag(state)
-    if not state.name:find("^ContainerFrame%d") or not IsReagentBag(state.frame) then return end
+    if state.isBag == nil then state.isBag = state.name:find("^ContainerFrame%d") ~= nil end
+    if not state.isBag or not IsReagentBag(state.frame) then return end
     for _, name in ipairs(MAIN_BAGS) do
         local f = _G[name]
         if f ~= state.frame and Accessible(f) and f:IsVisible() and Geometry(f) then
@@ -360,7 +359,7 @@ local function Save(state)
     end
     -- Size lets the options window preview a layout while the window is closed.
     d.w, d.h = width, height
-    state.driftFails = nil
+    state.driftFails, state.gaveUpAt, state.repairs = nil, nil, nil
 end
 
 local function MoveTo(state, left, top)
@@ -442,15 +441,31 @@ end
 
 -- Puts drifted windows back. Called every frame while windows are open, so a
 -- native re-anchor made during input is undone before the frame is drawn.
--- A window that will not stay put (another addon anchoring it every frame)
--- is left alone after three tries until it is next opened or dragged.
+-- A window that will not stay put is left alone for a while: three repairs
+-- that do not hold, or more than REPAIR_LIMIT repairs within a second
+-- (another addon anchoring it every frame). It is tried again after
+-- RETRY_AFTER seconds, and at once when it is reopened or dragged.
+-- Only real attempts count: a window that cannot be moved right now (a
+-- maximized map, combat, a hidden UI) is skipped without a strike.
+local REPAIR_LIMIT, RETRY_AFTER = 10, 3
 local function Reapply(skip)
     for _, state in pairs(states) do
-        if state.visible and state ~= skip and (state.driftFails or 0) < 3 and Drifted(state) then
+        if state.gaveUpAt and elapsedTotal - state.gaveUpAt >= RETRY_AFTER then
+            state.gaveUpAt, state.driftFails, state.repairs = nil, nil, nil
+        end
+        if state.visible and state ~= skip and not state.gaveUpAt and Drifted(state) and Available(state) then
+            if not state.repairs or elapsedTotal - state.repairsSince > 1 then
+                state.repairs, state.repairsSince = 0, elapsedTotal
+            end
+            state.repairs = state.repairs + 1
             Restore(state)
             if not mode then return end
             if Drifted(state) then state.driftFails = (state.driftFails or 0) + 1
             else state.driftFails = nil end
+            if (state.driftFails or 0) >= 3 or state.repairs > REPAIR_LIMIT then
+                state.gaveUpAt = elapsedTotal
+                state.gaveUpCount = (state.gaveUpCount or 0) + 1
+            end
             if state.grip then state.gripLeft = nil end
         end
     end
@@ -515,7 +530,9 @@ local function MakeGrip(state)
         if not left then return end
         local x, y = Cursor()
         state.restoreAt = nil
-        drag = { state = state, x = x, y = y, left = left, top = top }
+        -- lastX/lastY start at the press: only real movement saves a layout.
+        -- (A plain title click used to save wherever the window happened to be.)
+        drag = { state = state, x = x, y = y, left = left, top = top, lastX = x, lastY = y }
     end
     grip:SetScript("OnMouseDown", function(self, button)
         input.presses = input.presses + 1
@@ -536,8 +553,14 @@ local function MakeGrip(state)
     end)
     grip:SetScript("OnMouseWheel", function(_, delta)
         if drag or delta == 0 or not IsControlKeyDown() or not Available(state) then return end
-        local left, top = Geometry(state.frame)
+        local left, top, width, height = Geometry(state.frame)
         if not left then return end
+        -- Scale around the saved spot when there is one (the window may have drifted).
+        local d = Saved(state)
+        if d then
+            local wantLeft, wantTop = Want(state, d, width, height)
+            if wantLeft then left, top = wantLeft, wantTop end
+        end
         state.restoreAt = nil
         local old = state.frame:GetScale()
         local scale = math.max(0.5, math.min(DockLimit(state.frame) or 2,
@@ -688,7 +711,7 @@ Opened = function(state)
     -- returns when native code minimizes it without another OnShow.
     UpdateDriver()
     if not Available(state) then return end
-    state.restoreAt, state.driftFails = nil, nil
+    state.restoreAt, state.driftFails, state.gaveUpAt, state.repairs = nil, nil, nil, nil
     Restore(state)
     if not mode then return end
     state.visible = true
@@ -748,6 +771,17 @@ if EventRegistry then
         Reapply()
         FitDressingRoom()
     end, panelOwner)
+end
+
+-- DialogueUI and others hide UIParent during NPC talk; a vendor can open
+-- meanwhile. Its own OnShow restores it when the UI returns; this makes
+-- sure the driver is running then too.
+if UIParent and UIParent.HookScript then
+    UIParent:HookScript("OnShow", function()
+        if not ready or not mode or InCombatLockdown() then return end
+        nextUpdate = 0
+        UpdateDriver()
+    end)
 end
 
 events = CreateFrame("Frame")
@@ -855,7 +889,10 @@ OnUpdate = function(_, elapsed)
     for _, state in pairs(states) do
         local available = Available(state)
         if available then
-            if not state.visible then state.restoreAt = elapsedTotal end
+            if not state.visible then
+                -- Visible again (UI shown, map minimized): a fresh start.
+                state.restoreAt, state.driftFails, state.gaveUpAt, state.repairs = elapsedTotal, nil, nil, nil
+            end
             if state.restoreAt and elapsedTotal >= state.restoreAt and not drag then
                 state.restoreAt = nil
                 Restore(state)
