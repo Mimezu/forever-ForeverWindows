@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="FOREVERWINDOWS_TOGGLE" category="BINDING_CATEGORY_FOREVERWINDOWS">
+		ForeverWindows_ToggleOptions()
+	</Binding>
+</Bindings>

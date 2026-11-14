@@ -109,8 +109,28 @@ ForeverWindowsDB = { windows = {
     MailFrame = { scale = 0.9, x = 0.5, y = -0.1, w = 300, h = 400 },
 } }
 
+-- Key bindings, minimap and Blizzard Settings (Launch.lua).
+local bindings, saved = {}, 0
+function GetBindingKey(action) for k, a in pairs(bindings) do if a == action then return k end end end
+function GetBindingAction(key) return bindings[key] or "" end
+function GetBindingText(key) return key end
+function SetBinding(key, action) bindings[key] = action end
+function SaveBindings() saved = saved + 1 end
+function GetCurrentBindingSet() return 1 end
+local shift = false
+function IsShiftKeyDown() return shift end
+function IsAltKeyDown() return false end
+function O:CreateMaskTexture() return New("Texture", nil, self) end
+function O:GetCenter() return 1800, 900 end
+Minimap = New("Frame", "Minimap", UIParent); Minimap.w, Minimap.h = 140, 140
+local registered
+Settings = { RegisterCanvasLayoutCategory = function(panel, name) registered = { panel = panel, name = name }; return registered end,
+    RegisterAddOnCategory = function(c) c.added = true end }
+SettingsPanel = New("Frame", "SettingsPanel", UIParent)
+SettingsPanel.CloseButton = New("Button", nil, SettingsPanel)
+
 local ns = {}
-for _, file in ipairs({ "Core", "Skin", "Options" }) do
+for _, file in ipairs({ "Core", "Skin", "Options", "Launch" }) do
     assert(loadfile("Interface/AddOns/ForeverWindows/" .. file .. ".lua"))("ForeverWindows", ns)
 end
 local events
@@ -218,4 +238,53 @@ ForeverWindowsDB.windows = {}
 SlashCmdList.FOREVERWINDOWS(""); SlashCmdList.FOREVERWINDOWS("")
 for _, row in ipairs(Rows()) do assert(not row:IsShown()) end
 win:Fire("OnHide"); assert(not ghost:IsShown() and not native:IsShown())
+-- Toggle key: bound from the window's keycap; Esc cancels, modifiers combine.
+assert(BINDING_NAME_FOREVERWINDOWS_TOGGLE and BINDING_CATEGORY_FOREVERWINDOWS == "Forever Windows")
+local keycap
+for _, f in ipairs(all) do if f.catcher and f.parent == win then keycap = f end end
+assert(keycap and keycap.text == "Not set", "window has a key setter")
+keycap:Fire("OnClick", "LeftButton"); assert(keycap.listening and keycap.text == "Press a key")
+keycap.catcher:Fire("OnKeyDown", "ESCAPE"); assert(not keycap.listening and next(bindings) == nil, "Escape cancels")
+bindings["SHIFT-W"] = "MOVEFORWARD"
+keycap:Fire("OnClick", "LeftButton"); shift = true
+keycap.catcher:Fire("OnKeyDown", "LSHIFT"); assert(keycap.listening, "modifier alone keeps listening")
+keycap.catcher:Fire("OnKeyDown", "W"); shift = false
+assert(bindings["SHIFT-W"] == "FOREVERWINDOWS_TOGGLE" and saved == 1 and keycap.text == "SHIFT-W", "binds and saves, replacing")
+keycap:Fire("OnClick", "LeftButton"); keycap.catcher:Fire("OnKeyDown", "F7")
+assert(bindings.F7 == "FOREVERWINDOWS_TOGGLE" and bindings["SHIFT-W"] == nil, "one key per action")
+keycap:Fire("OnClick", "RightButton"); assert(next(bindings) == nil and keycap.text == "Not set", "right-click clears")
+combat = true; keycap:Fire("OnClick", "LeftButton"); assert(not keycap.listening, "no key changes in combat"); combat = false
+win:Hide(); ForeverWindows_ToggleOptions(); assert(win:IsShown(), "binding toggles the window")
+ForeverWindows_ToggleOptions(); assert(not win:IsShown())
+
+-- Minimap button and Settings page appear at login.
+local loader
+for _, f in ipairs(all) do if f.scripts.OnEvent and not f.name and f ~= events and f ~= win then loader = f end end
+loader:Fire("OnEvent", "PLAYER_LOGIN")
+local mm = ForeverWindowsMinimapButton
+assert(mm and mm:IsShown(), "minimap button shown by default")
+mm:Fire("OnClick"); assert(win:IsShown(), "minimap click opens the window"); mm:Fire("OnClick")
+mm:Fire("OnEnter"); assert(tipped == "Forever Windows")
+mm:Fire("OnDragStart"); assert(mm.scripts.OnUpdate)
+mm:Fire("OnUpdate"); mm:Fire("OnDragStop")
+assert(type(ForeverWindowsDB.minimap.angle) == "number", "drag saves the angle")
+assert(registered and registered.name == "Forever Windows" and registered.added, "Settings page registered")
+local checks = {}
+for _, f in ipairs(all) do if f.kind == "CheckButton" and f.Text and f.Text.text == "Minimap icon" then checks[#checks + 1] = f end end
+assert(#checks == 2, "minimap toggle in the window and on the Settings page")
+checks[2].checked = false; checks[2]:Fire("OnClick")
+assert(ForeverWindowsDB.minimap.hide and not mm:IsShown() and checks[1].checked == false, "toggle hides and syncs")
+checks[1].checked = true; checks[1]:Fire("OnClick")
+assert(not ForeverWindowsDB.minimap.hide and mm:IsShown())
+local openBtn
+for _, f in ipairs(registered.panel.children) do if f.label and f.label.text == "Open" then openBtn = f end end
+registered.panel:Hide(); registered.panel:Show()
+openBtn:Fire("PreClick")
+assert(Attr(openBtn, "type") == "click" and Attr(openBtn, "clickbutton") == SettingsPanel.CloseButton,
+    "Open hands its click to Settings' Close")
+openBtn:Fire("PostClick"); assert(win:IsShown(), "Open shows the window")
+local hint
+for _, f in ipairs(registered.panel.children) do if f.text == "/fwm" then hint = f end end
+assert(hint, "slash hint")
+print("PASS: toggle key setter, minimap button, Settings page")
 print("PASS: options list, labels, where-hints, hover preview, open/close, reset, undo, reset all, combat, enable, empty state")

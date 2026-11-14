@@ -1,4 +1,4 @@
-# Forever Windows - 1.5.0
+# Forever Windows - 1.6.0
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -9,6 +9,11 @@ Saved layouts restore synchronously on opening. An OnShow post-hook handles dire
 The update loop stops when all managed windows are closed, during combat, and when disabled. Visibility hooks and game events wake it. Visible windows use a 10 Hz grip audit to follow native tab/focus/geometry changes; dragging updates each frame. Unchanged grip anchors and sizes are not rewritten, and stationary drags do not repeatedly save coordinates.
 
 Dressing room (Ctrl-click) opens beside the auction house; it no longer closes it or the bags. While the auction house is open, the dressing room is shrunk to fit; its own scale returns when it opens alone.
+
+## Opening
+
+- `/fwm`, the minimap button (drag to move it), a key (set in the window's footer or Key Bindings > Forever Windows), or Esc > Options > AddOns > Forever Windows.
+- The window's footer: Minimap icon, Window key (click, press a key; Esc cancels; right-click clears).
 
 ## Commands
 

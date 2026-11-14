@@ -3,7 +3,7 @@ local _, ns = ...
 -- A small Legacy-style window listing every moved or resized window, with a
 -- live outline preview on hover, open/close, and reset to Blizzard's layout.
 
-local W, H = 344, 404
+local W, H = 344, 436
 local ROWS, ROW_H = 8, 34
 local GOLD, NOTE, DIM, GREEN = {1, 0.82, 0}, {0.80, 0.77, 0.70}, {0.5, 0.5, 0.5}, {0.55, 0.85, 0.45}
 
@@ -93,6 +93,7 @@ local function CloseButtonOf(f)
         if Delegable(button) and button:IsVisible() then return button end
     end
 end
+ns.CloseButtonOf = CloseButtonOf
 
 -- The action for the Open/Close button: "click", button / "macro", text, or
 -- nil plus the reason it is unavailable.
@@ -267,7 +268,7 @@ local function Create()
 
     local content = CreateFrame("Frame", nil, frame)
     content:SetPoint("TOPLEFT", 22, -44)
-    content:SetPoint("BOTTOMRIGHT", -16, 48)
+    content:SetPoint("BOTTOMRIGHT", -16, 80)
     local status = Text(content, "", "GameFontHighlightSmall", NOTE)
     status:SetPoint("TOPLEFT", 2, 0)
     local version = Text(content, "v" .. ns.VERSION, "GameFontDisableSmall")
@@ -366,7 +367,14 @@ local function Create()
         Refresh()
     end)
 
-    -- Footer.
+    -- Footer: minimap icon and window key, then the switch and Reset all.
+    if ns.Minimap then ns.Minimap.Check(frame):SetPoint("BOTTOMLEFT", 20, 46) end
+    if ns.Keys then
+        local key = ns.Keys.Setter(frame, 96, true)
+        key:SetPoint("BOTTOMRIGHT", -18, 48)
+        local keyLabel = Text(frame, "Window key", "GameFontHighlight")
+        keyLabel:SetPoint("RIGHT", key, "LEFT", -8, 0)
+    end
     local enable = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     enable:SetSize(26, 26)
     enable:SetPoint("BOTTOMLEFT", 20, 14)
@@ -508,4 +516,10 @@ end
 function ns.ToggleOptions()
     if not frame then Create() end
     frame:SetShown(not frame:IsShown())
+end
+
+function ns.ShowOptions()
+    if not frame then Create() end
+    frame:Show()
+    if frame.Raise then frame:Raise() end
 end
