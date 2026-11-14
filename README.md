@@ -1,4 +1,4 @@
-# Forever Windows - 1.4.0
+# Forever Windows - 1.5.0
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -70,3 +70,5 @@ Version 1.3.3 makes `/fwm taint` see where this taint really lands. Earlier chec
 The addon also saves a snapshot on its own while the gamepad UI is on (`ForeverWindowsDB.gamepadReports`, last 5): once per session for each other addon that has an action blocked, and once for the first Lua error inside Blizzard's gamepad navigation (via BugGrabber). This was added for the 2026-09-27 report of A no longer jumping and B no longer closing windows. There, `SmartNavigation` Show/Hide was refused after Frame Gambit's Cinematic Mode had called `CloseAllWindows()`. Nothing else changes for other addons' blocks.
 
 Version 1.3.6 drops window names that do not exist on Forever (checked against the 70532 Blizzard UI source: GuildFrame, AuctionFrame, CraftFrame, TradeSkillFrame, SpellBookFrame, QuestLogFrame, StableFrame, TalentFrame, PlayerTalentFrame, InterfaceOptionsFrame, PVPFrame, EncounterJournal) from the discovery list and their label, location and Open-button rows. Windows that exist are unchanged.
+
+Version 1.5.0 keeps the reagent bag attached to the main bag (the combined bag, or the backpack). Blizzard hangs it beside that bag; a moved or scaled reagent bag now stays hung from it, at your offset and scale (`attachTo`, `dx`, `dy` in its layout), so it moves with the main bag. Opened alone, it uses its last screen position. It is never anchored to a bag that hangs from it (no circular anchor). Reset puts it back where Blizzard hangs it. Older reagent-bag layouts have no offset: the bag returns beside the main bag with its scale, and the next drag sets the offset.

@@ -19,8 +19,19 @@ function F:IsShown() return not self.hidden end
 function F:IsVisible() return not self.hidden and (not self.parent or self.parent:IsVisible()) end
 function F:GetScale() return self.scale end
 function F:GetEffectiveScale() return self.scale*(not self.ignoreParentScale and self.parent and self.parent:GetEffectiveScale() or 1) end
-function F:GetLeft() return self.title and self.parent:GetLeft()+58 or self.left end
-function F:GetTop() return self.title and self.parent:GetTop()-1 or self.top end
+-- A frame anchored to another bag (Blizzard's reagent bag beside the main
+-- bag): TOPLEFT to TOPLEFT, or BOTTOMRIGHT to BOTTOMLEFT. Own-scale units.
+local function anchored(self)
+    local a=self.anchor; local r=a.relative
+    local k=r:GetEffectiveScale()/self:GetEffectiveScale()
+    local rl,rt,rh=r:GetLeft()*k,r:GetTop()*k,r:GetHeight()*k
+    if a.point=='TOPLEFT' then return rl+a.x,rt+a.y end
+    return rl+a.x-self.width,rt-rh+a.y+self.height
+end
+function F:GetLeft() if self.title then return self.parent:GetLeft()+58 end; if self.anchor then return (anchored(self)) end; return self.left end
+function F:GetTop() if self.title then return self.parent:GetTop()-1 end; if self.anchor then return select(2,anchored(self)) end; return self.top end
+function F:GetNumPoints() return 1 end
+function F:GetPoint() if self.anchor then return self.anchor.point,self.anchor.relative end; return 'TOPLEFT',UIParent end
 function F:GetWidth() return self.title and self.parent:GetWidth()-82 or self.width end
 function F:GetHeight() return self.title and 20 or self.height end
 function F:GetFrameLevel() return self.level end
@@ -28,8 +39,14 @@ function F:GetFrameStrata() return 'MEDIUM' end
 function F:SetScale(v) self.writes=self.writes+1; self.scale=v end
 function F:ClearAllPoints() self.writes=self.writes+1 end
 function F:SetPoint(point, relative, relativePoint, x,y)
-    assert(relative==UIParent, 'no anchor dependency on Blizzard windows')
     self.writes=self.writes+1
+    if relative~=UIParent then
+        -- Only the reagent bag may hang from a Blizzard window: the main bag, as Blizzard does.
+        assert(self.GetBagID and self:GetBagID()==5 and relative.name=='ContainerFrameCombinedBags','no anchor dependency on Blizzard windows')
+        self.anchor={point=point,relative=relative,x=x,y=y}
+        return
+    end
+    self.anchor=nil
     self.left=x
     self.top=y+(relativePoint=='TOPLEFT' and UIParent.height*UIParent:GetEffectiveScale()/self:GetEffectiveScale() or 0)
 end
@@ -397,8 +414,53 @@ assert(ForeverWindowsDB.windows.DressUpFrame.scale==1.5,'saved scale kept for op
 dress:Show(); near(dress.scale,1.5); dress:Hide()
 GetUIPanel=nil; UIPanelLayoutFrame=nil; F.GetAttribute=nil; UIParent.GetRight=nil
 ForeverWindowsDB.windows.DressUpFrame=nil; ForeverWindowsDB.windows.AuctionHouseFrame=nil
+-- 1.5.0: the reagent bag stays attached to the main bag, at its own offset and scale.
+local function gx(f) return f:GetLeft()*f:GetEffectiveScale()/UIParent:GetEffectiveScale() end
+local function gy(f) return f:GetTop()*f:GetEffectiveScale()/UIParent:GetEffectiveScale() end
+local function gripOf(f) for _,g in ipairs(overlays()) do if g.parent==f then return g end end end
+local function blizzardAnchor(r) r:SetPoint('BOTTOMRIGHT',bags,'BOTTOMLEFT',-11,0) end
+ForeverWindowsDB.windows.ContainerFrame6=nil
+bags:Show(); tick(2)
+local reagent=window('ContainerFrame6'); reagent:Hide(); reagent.height=200
+function reagent:GetBagID() return 5 end
+events:Fire('OnEvent','BAG_UPDATE_DELAYED')
+blizzardAnchor(reagent); reagent:Show(); tick(2)
+local offset=gx(reagent)-gx(bags)
+local bg=gripOf(bags)
+bg:Fire('OnMouseDown','LeftButton'); cx=cx+40; tick(); bg:Fire('OnMouseUp','LeftButton')
+near(gx(reagent)-gx(bags),offset)
+assert(ForeverWindowsDB.windows.ContainerFrame6==nil,'an unmoved reagent bag follows Blizzard')
+local rg=gripOf(reagent)
+assert(rg,'reagent bag has its own grip')
+rg:Fire('OnMouseDown','LeftButton'); cx,cy=cx-30,cy+25; tick(); rg:Fire('OnMouseUp','LeftButton')
+local rd=ForeverWindowsDB.windows.ContainerFrame6
+assert(rd and rd.attachTo=='ContainerFrameCombinedBags','reagent layout is kept relative to the main bag')
+near(rd.dx,offset-30)
+assert(reagent.anchor and reagent.anchor.relative==bags,'moved reagent bag hangs from the main bag')
+control=true; rg:Fire('OnMouseWheel',1); control=false
+near(reagent.scale,1.05); near(gx(reagent)-gx(bags),rd.dx)
+local dx,dy=rd.dx,rd.dy
+bg:Fire('OnMouseDown','LeftButton'); cx,cy=cx+50,cy-20; tick(); bg:Fire('OnMouseUp','LeftButton')
+near(gx(reagent)-gx(bags),dx); near(gy(reagent)-gy(bags),dy)
+-- Blizzard re-anchors the bags when one opens or closes.
+blizzardAnchor(reagent); reagent.scale=1; events:Fire('OnUpdate',0.001)
+near(reagent.scale,1.05); near(gx(reagent)-gx(bags),dx); near(gy(reagent)-gy(bags),dy)
+-- Opened alone, it uses its last screen position.
+bags:Hide(); reagent:Hide(); reagent.anchor=nil; reagent.left,reagent.scale=0,1
+reagent:Show(); tick()
+near(gx(reagent),rd.x*UIParent.width); assert(reagent.anchor==nil)
+-- The main bag hanging from the reagent bag: no circular anchor.
+reagent:Hide(); bags:Show(); bags.anchor={point='TOPLEFT',relative=reagent,x=500,y=0}
+reagent:Show(); tick()
+assert(reagent.anchor==nil,'never anchored back to a bag that hangs from it')
+bags.anchor=nil; reagent:Hide(); bags:Hide(); bags:Show(); blizzardAnchor(reagent); reagent:Show(); tick()
+near(gx(reagent)-gx(bags),dx)
+-- Reset puts it back where Blizzard hangs it.
+assert(ns.Reset('ContainerFrame6')==true and ForeverWindowsDB.windows.ContainerFrame6==nil)
+assert(reagent.anchor and reagent.anchor.point=='BOTTOMRIGHT' and reagent.anchor.relative==bags,'reset hangs it beside the main bag')
+reagent:Hide(); bags:Hide(); tick(2)
 SlashCmdList.FOREVERWINDOWS('test')
 assert(ForeverWindowsDB.enabled==true,'session-only test mode must not disable future logins')
 SlashCmdList.FOREVERWINDOWS('off')
 assert(next(character.scripts)==nil and character.SetPoint==F.SetPoint,'native scripts and methods unchanged')
-print('PASS: panel-manager drift correction, unmoved windows untouched, reset/undo, automatic startup, direct-Show and lazy-window instant restore, persistent enable/off, inactive behavior, Character isolation, window-owned grips, drag/scale/persistence, no idle or close writes, combat, forbidden/EditMode/cycle exclusions, map mode, auto-suspension, gamepad UI default, pause/resume and session-only block pause, dressing room beside the auction house')
+print('PASS: panel-manager drift correction, unmoved windows untouched, reset/undo, automatic startup, direct-Show and lazy-window instant restore, persistent enable/off, inactive behavior, Character isolation, window-owned grips, drag/scale/persistence, no idle or close writes, combat, forbidden/EditMode/cycle exclusions, map mode, auto-suspension, gamepad UI default, pause/resume and session-only block pause, dressing room beside the auction house, reagent bag attached to the main bag')

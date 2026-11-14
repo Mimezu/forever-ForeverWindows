@@ -1,6 +1,6 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.4.0"
+local VERSION = "1.5.0"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0
@@ -268,6 +268,80 @@ local function TargetScale(state, d)
     return limit and math.min(scale, limit) or scale
 end
 
+-- Keeps a whole window on screen.
+local function Clamp(left, top, width, height)
+    left = math.max(0, math.min(left, math.max(0, UIParent:GetWidth() - width)))
+    top = math.min(UIParent:GetHeight(), math.max(math.min(height, UIParent:GetHeight()), top))
+    return left, top
+end
+
+-- Reagent bag ---------------------------------------------------------------
+-- Blizzard anchors the reagent bag to the main bag (the combined bag, or the
+-- backpack), so it follows it. A moved or scaled reagent bag keeps that: its
+-- layout is an offset from the main bag (attachTo, dx, dy, in UIParent units)
+-- and it is anchored to that bag, not to the screen. Opened alone, it uses
+-- its last screen position (x, y) like any other window.
+local REAGENT_BAG = (Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag) or 5
+local MAIN_BAGS = { "ContainerFrameCombinedBags", "ContainerFrame1" }
+local REAGENT_GAP = 11 -- Blizzard's space between bag columns
+
+-- Bag frames are handed out per opening, so ask the frame which bag it shows.
+local function IsReagentBag(frame)
+    if type(frame.GetBagID) ~= "function" then return false end
+    local ok, id = pcall(frame.GetBagID, frame)
+    return ok and id == REAGENT_BAG
+end
+
+-- True when frame hangs, directly or through other frames, from target.
+-- Anchoring target back to it would be a circular anchor (an error).
+local function DependsOn(frame, target)
+    local seen = {}
+    local function walk(f, depth)
+        if depth > 8 or seen[f] then return false end
+        seen[f] = true
+        local okCount, count = pcall(f.GetNumPoints, f)
+        for i = 1, (okCount and type(count) == "number") and count or 0 do
+            local ok, _, relative = pcall(f.GetPoint, f, i)
+            if ok and relative then
+                if relative == target then return true end
+                if relative ~= UIParent and type(relative) == "table" and walk(relative, depth + 1) then return true end
+            end
+        end
+        return false
+    end
+    return walk(frame, 0)
+end
+
+-- The open main bag a reagent bag hangs from, and its name. None when that
+-- bag is itself anchored to the reagent bag (Blizzard opened the reagent bag first).
+local function MainBag(state)
+    if not state.name:find("^ContainerFrame%d") or not IsReagentBag(state.frame) then return end
+    for _, name in ipairs(MAIN_BAGS) do
+        local f = _G[name]
+        if f ~= state.frame and Accessible(f) and f:IsVisible() and Geometry(f) then
+            if DependsOn(f, state.frame) then return end
+            return f, name
+        end
+    end
+end
+
+-- Where a layout puts a window now (left, top in UIParent units). A reagent
+-- bag beside its main bag with no offset yet gives nil: Blizzard's spot.
+local function Want(state, d, width, height)
+    local main, mainName = MainBag(state)
+    if main then
+        if d.attachTo ~= mainName or type(d.dx) ~= "number" or type(d.dy) ~= "number" then return end
+        local mainLeft, mainTop = Geometry(main)
+        return mainLeft + d.dx, mainTop + d.dy
+    end
+    return Clamp(d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight(), width, height)
+end
+
+local function AnchoredTo(frame, target)
+    local ok, _, relative = pcall(frame.GetPoint, frame, 1)
+    return ok and relative == target
+end
+
 local function Save(state)
     local left, top, width, height = Geometry(state.frame)
     if not left then return end
@@ -279,16 +353,14 @@ local function Save(state)
     local limit = DockLimit(state.frame)
     if not (limit and type(d.scale) == "number" and d.scale > limit and scale >= limit - 0.001) then d.scale = scale end
     d.x, d.y = left / UIParent:GetWidth(), top / UIParent:GetHeight() - 1
+    local main, mainName = MainBag(state)
+    if main then
+        local mainLeft, mainTop = Geometry(main)
+        d.attachTo, d.dx, d.dy = mainName, left - mainLeft, top - mainTop
+    end
     -- Size lets the options window preview a layout while the window is closed.
     d.w, d.h = width, height
     state.driftFails = nil
-end
-
--- Keeps a whole window on screen.
-local function Clamp(left, top, width, height)
-    left = math.max(0, math.min(left, math.max(0, UIParent:GetWidth() - width)))
-    top = math.min(UIParent:GetHeight(), math.max(math.min(height, UIParent:GetHeight()), top))
-    return left, top
 end
 
 local function MoveTo(state, left, top)
@@ -296,12 +368,20 @@ local function MoveTo(state, left, top)
     local frame = state.frame
     local oldLeft, oldTop, width, height = Geometry(frame)
     if not oldLeft then return end
-    left, top = Clamp(left, top, width, height)
-    if math.abs(oldLeft - left) < 0.25 and math.abs(oldTop - top) < 0.25 then return end
+    local main = MainBag(state)
+    -- An attached reagent bag may hang off screen with its main bag; the main bag is clamped.
+    if not main then left, top = Clamp(left, top, width, height) end
+    if math.abs(oldLeft - left) < 0.25 and math.abs(oldTop - top) < 0.25
+        and (not main or AnchoredTo(frame, main)) then return end
     local ratio = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
     frame:ClearAllPoints()
-    frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left / ratio,
-        (top - UIParent:GetHeight()) / ratio)
+    if main then
+        local mainLeft, mainTop = Geometry(main)
+        frame:SetPoint("TOPLEFT", main, "TOPLEFT", (left - mainLeft) / ratio, (top - mainTop) / ratio)
+    else
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left / ratio,
+            (top - UIParent:GetHeight()) / ratio)
+    end
     local actualLeft, actualTop = Geometry(frame)
     state.lastMove = string.format("requested %.1f,%.1f; actual %.1f,%.1f", left, top, actualLeft or -1, actualTop or -1)
 end
@@ -315,7 +395,8 @@ local function Capture(state, d)
     local left, top, width, height = Geometry(frame)
     if not left then return end
     local uiWidth, uiHeight = UIParent:GetWidth(), UIParent:GetHeight()
-    local wantLeft, wantTop = Clamp(d.x * uiWidth, (1 + d.y) * uiHeight, width, height)
+    local wantLeft, wantTop = Want(state, d, width, height)
+    if not wantLeft then return end
     if math.abs(left - wantLeft) <= 0.5 and math.abs(top - wantTop) <= 0.5 then return end
     local scale = frame:GetScale()
     if not scale or scale <= 0 then return end
@@ -338,7 +419,10 @@ local function Restore(state)
     Capture(state, d)
     local scale = TargetScale(state, d)
     if math.abs(state.frame:GetScale() - scale) > 0.001 then state.frame:SetScale(scale) end
-    MoveTo(state, d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight())
+    local _, _, width, height = Geometry(state.frame)
+    if not width then return end
+    local left, top = Want(state, d, width, height)
+    if left then MoveTo(state, left, top) end
 end
 
 -- Blizzard's panel manager re-anchors every open panel when a tab changes a
@@ -351,7 +435,8 @@ local function Drifted(state)
     if math.abs(frame:GetScale() - TargetScale(state, d)) > 0.001 then return true end
     local left, top, width, height = Geometry(frame)
     if not left then return false end
-    local wantLeft, wantTop = Clamp(d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight(), width, height)
+    local wantLeft, wantTop = Want(state, d, width, height)
+    if not wantLeft then return false end
     return math.abs(left - wantLeft) > 0.5 or math.abs(top - wantTop) > 0.5
 end
 
@@ -833,7 +918,10 @@ function ns.SavedRect(name, layout)
     if type(width) ~= "number" or type(height) ~= "number" or width <= 0 or height <= 0 then
         width, height = 384 * scale, 512 * scale
     end
-    local left, top = Clamp(d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight(), width, height)
+    local left, top
+    local _, state = Frame(name)
+    if state then left, top = Want(state, d, width, height) end
+    if not left then left, top = Clamp(d.x * UIParent:GetWidth(), (1 + d.y) * UIParent:GetHeight(), width, height) end
     return left, top, width, height
 end
 -- Where Blizzard puts a window, as last seen; an open window without a
@@ -865,6 +953,12 @@ function ns.Reset(name)
     if type(scale) ~= "number" or scale <= 0 then return false end
     if math.abs(f:GetScale() - scale) > 0.001 then f:SetScale(scale) end
     if state.grip then state.gripLeft = nil end
+    local main = MainBag(state)
+    if main then
+        f:ClearAllPoints()
+        f:SetPoint("BOTTOMRIGHT", main, "BOTTOMLEFT", -REAGENT_GAP, 0)
+        return true
+    end
     if not native then return false end
     local _, _, width, height = Geometry(f)
     if not width then return false end
