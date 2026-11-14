@@ -1,4 +1,4 @@
-# Forever Windows - 1.6.1
+# Forever Windows - 1.6.2
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -86,3 +86,5 @@ Version 1.6.1 is a review pass, aimed at windows (the vendor most of all) not al
 - When UIParent is shown again (DialogueUI hides it during NPC talk), the update loop wakes at once.
 - Less per-frame work for bags.
 - Not changed: separate bag frames are handed out per opening, so with separate bags a "Bag 3" layout lands on whichever bag opens third. The combined bag, backpack and reagent bag are not affected.
+
+Version 1.6.2 fixes an error when hovering an Open button whose window can be opened.

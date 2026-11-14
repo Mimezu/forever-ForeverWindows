@@ -355,7 +355,10 @@ local function Create()
         open:SetPoint("RIGHT", row.reset, "LEFT", -4, 0)
         Tip(open, function(self)
             local entry = self:GetParent().entry
-            return entry and select(2, Action(entry.name))
+            if not entry then return end
+            -- Action gives (kind, button) when it can act, (nil, reason) when not: only a reason is text.
+            local kind, detail = Action(entry.name)
+            if not kind then return detail end
         end)
         row.open = open
         rows[i] = row
