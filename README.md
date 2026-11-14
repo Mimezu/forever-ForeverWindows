@@ -1,4 +1,4 @@
-# Forever Windows - 1.6.0
+# Forever Windows - 1.6.1
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -78,7 +78,7 @@ Version 1.3.6 drops window names that do not exist on Forever (checked against t
 
 Version 1.5.0 keeps the reagent bag attached to the main bag (the combined bag, or the backpack). Blizzard hangs it beside that bag; a moved or scaled reagent bag now stays hung from it, at your offset and scale (`attachTo`, `dx`, `dy` in its layout), so it moves with the main bag. Opened alone, it uses its last screen position. It is never anchored to a bag that hangs from it (no circular anchor). Reset puts it back where Blizzard hangs it. Older reagent-bag layouts have no offset: the bag returns beside the main bag with its scale, and the next drag sets the offset.
 
-Version 1.5.1 is a review pass, aimed at windows (the vendor most of all) not always coming back where they were put.
+Version 1.6.1 is a review pass, aimed at windows (the vendor most of all) not always coming back where they were put.
 - A title click without movement no longer saves. It used to save the window's current spot, so a click or gamepad tap on a window Blizzard had pushed aside made that spot its layout.
 - Ctrl + mouse wheel scales a drifted window at its saved spot instead of saving the drifted one.
 - Drift repair counts a strike only when it really tried to move the window. A window that could not be moved for a moment (a maximized map, a hidden UI) used to collect three strikes and was then never repaired while it stayed open.
