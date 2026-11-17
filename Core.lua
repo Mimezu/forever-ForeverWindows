@@ -1,6 +1,6 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.6.3"
+local VERSION = "1.6.4"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0
@@ -514,6 +514,13 @@ local function MakeGrip(state)
     local grip = CreateFrame("Button", nil, state.frame)
     state.grip = grip
     grip:Hide()
+    -- Never a gamepad cursor stop. In the bag, Blizzard's d-pad navigation is
+    -- a grid with one column per x among its buttons: a grip across the title
+    -- was one more column between two item columns. This is Blizzard's call
+    -- for addons; out of combat it runs securely (grips are made out of combat).
+    if type(SmartNavigation_MarkFrameIgnored) == "function" and not InCombatLockdown() then
+        pcall(SmartNavigation_MarkFrameIgnored, grip)
+    end
     grip:EnableMouse(true)
     grip:SetMouseClickEnabled(true)
     grip:SetPropagateMouseClicks(false)
@@ -658,12 +665,6 @@ end
 
 local function UpdateGrip(state)
     local f = state.frame
-    -- No grip on bags in the gamepad UI. Blizzard's d-pad navigation there is a
-    -- grid made of every visible button in the bag, one column per x: a grip
-    -- across the title is one more column, between two item columns, and the
-    -- cursor lands on it. Creating it inside the bag would also run Blizzard's
-    -- CreateFrame hook for the open panel. Their layouts are still restored.
-    if GamepadUI() and state.name:find("^ContainerFrame") then HideGrip(state); return end
     local title = f.TitleContainer or (f.BorderFrame and f.BorderFrame.TitleContainer)
         or (f.Border and f.Border.TitleContainer)
     if title and not Accessible(title) then HideGrip(state); return end

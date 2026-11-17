@@ -83,6 +83,9 @@ function F:HookScript(event,fn)
     assert(not self[key],'no duplicate hook'); self[key]=fn
 end
 function hooksecurefunc() error('native hooks must not be installed') end
+-- Blizzard's addon-facing call that keeps a frame out of gamepad navigation.
+navIgnored={}
+function SmartNavigation_MarkFrameIgnored(f) navIgnored[f]=true end
 function InCombatLockdown() return combat end
 function IsControlKeyDown() return control end
 function IsMouseButtonDown() return down end
@@ -362,7 +365,9 @@ assert(#overlays()==1,'keyboard UI keeps grips')
 gamepadUI=true; events:Fire('OnEvent','INPUT_DEVICE_INTERFACE_TRANSITION',1,0); tick(2)
 assert(#overlays()==1,'gamepad UI keeps grips by default')
 bags:Show(); tick(2)
-assert(#overlays()==1,'gamepad UI: no grip on bags (it would be a d-pad stop in their grid)')
+local bagGripNow
+for _,g in ipairs(overlays()) do if g.parent==bags then bagGripNow=g end end
+assert(bagGripNow and navIgnored[bagGripNow],'gamepad UI: bags keep their grip, which is no d-pad stop')
 bags:Hide(); tick(2)
 character:Hide(); character.left,character.scale=0,1
 openPanel(character)
