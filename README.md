@@ -1,4 +1,4 @@
-# Forever Windows - 1.6.2
+# Forever Windows - 1.6.3
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -88,3 +88,5 @@ Version 1.6.1 is a review pass, aimed at windows (the vendor most of all) not al
 - Not changed: separate bag frames are handed out per opening, so with separate bags a "Bag 3" layout lands on whichever bag opens third. The combined bag, backpack and reagent bag are not affected.
 
 Version 1.6.2 fixes an error when hovering an Open button whose window can be opened.
+
+Version 1.6.3: no title grip on bags in the gamepad UI. Blizzard's d-pad navigation in the bag is a grid of every visible button in it, one column per x; the grip across the title was one more column between two item columns, so the cursor landed on it. Bag layouts are still restored there; bags just cannot be dragged by the title in the gamepad UI.
