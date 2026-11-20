@@ -1,6 +1,6 @@
 local addonName, ns = ...
 ns = ns or {}
-local VERSION = "1.6.4"
+local VERSION = "1.6.5"
 ns.VERSION = VERSION
 local states, ready, mode = {}, false, nil
 local elapsedTotal, nextUpdate = 0, 0

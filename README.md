@@ -1,4 +1,4 @@
-# Forever Windows - 1.6.4
+# Forever Windows - 1.6.5
 
 Supported Blizzard windows are enabled by default. Left-drag their title bars to move; Ctrl + mouse wheel scales by 5%, from 50% to 200%. Account-wide positions and sizes persist across reloads.
 
@@ -92,3 +92,5 @@ Version 1.6.2 fixes an error when hovering an Open button whose window can be op
 Version 1.6.3: no title grip on bags in the gamepad UI. Blizzard's d-pad navigation in the bag is a grid of every visible button in it, one column per x; the grip across the title was one more column between two item columns, so the cursor landed on it. Bag layouts are still restored there; bags just cannot be dragged by the title in the gamepad UI.
 
 Version 1.6.4: grips are back on bags in the gamepad UI. Every grip is marked with SmartNavigation_MarkFrameIgnored (Blizzard's call for addons; out of combat it runs securely), so it is never a gamepad cursor stop and no longer adds a column to the bag's d-pad grid.
+
+Version 1.6.5: less garbage while the dressing room is open.
