@@ -240,24 +240,24 @@ end
 local function PanelWidth(frame)
     return (PanelValue(frame, "width") or frame:GetWidth()) + (PanelValue(frame, "extraWidth") or 0)
 end
+local function Attr(layout, name, default) return tonumber(layout:GetAttribute(name)) or default end
+local function DockLimitOf(frame, layout)
+    local wide = GetUIPanel("doublewide")
+    if not Accessible(wide) or not wide:IsShown() or not Accessible(layout) then return end
+    -- Blizzard checks against its stored offset first, then the one it
+    -- recomputes with the panel's current scale (this addon's layout).
+    local fresh = Attr(layout, "LEFT_OFFSET", 16) + PanelWidth(wide) * wide:GetScale() + (PanelValue(wide, "xoffset") or 0)
+    local offset = math.max(Attr(layout, "RIGHT_OFFSET", fresh), fresh)
+    local room = UIParent:GetRight() - Attr(layout, "RIGHT_OFFSET_BUFFER", 80) - offset
+    local width = PanelWidth(frame)
+    if width <= 0 then return end
+    return math.floor(room / width * 100) / 100
+end
 -- Largest dressing room scale that Blizzard places beside the open
 -- doublewide panel; nil when none is open or there is no room even at 0.5.
 local function DockLimit(frame)
     if frame == nil or frame ~= _G.DressUpFrame or type(GetUIPanel) ~= "function" then return end
-    local layout = _G.UIPanelLayoutFrame
-    local ok, limit = pcall(function()
-        local wide = GetUIPanel("doublewide")
-        if not Accessible(wide) or not wide:IsShown() or not Accessible(layout) then return end
-        local function attr(name, default) return tonumber(layout:GetAttribute(name)) or default end
-        -- Blizzard checks against its stored offset first, then the one it
-        -- recomputes with the panel's current scale (this addon's layout).
-        local fresh = attr("LEFT_OFFSET", 16) + PanelWidth(wide) * wide:GetScale() + (PanelValue(wide, "xoffset") or 0)
-        local offset = math.max(attr("RIGHT_OFFSET", fresh), fresh)
-        local room = UIParent:GetRight() - attr("RIGHT_OFFSET_BUFFER", 80) - offset
-        local width = PanelWidth(frame)
-        if width <= 0 then return end
-        return math.floor(room / width * 100) / 100
-    end)
+    local ok, limit = pcall(DockLimitOf, frame, _G.UIPanelLayoutFrame)
     if not ok or type(limit) ~= "number" or limit ~= limit or limit < 0.5 then return end
     return math.min(2, limit)
 end
